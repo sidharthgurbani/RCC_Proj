@@ -71,7 +71,7 @@ def featureSelectAndClassifyRFE(X_train, X_test, y_train, y_test):
     #print(X_test_transformed.shape)
 
 def writeToExcelFile(ranks):
-    wb =load_workbook("../Dataset/temp.xlsx")
+    wb =load_workbook("Dataset/temp.xlsx")
     ws = wb.create_sheet("Sheet2")
     i=5
     for val in ranks:
@@ -79,13 +79,13 @@ def writeToExcelFile(ranks):
         wcell.value = val
         i=i+1
 
-    wb.save("../Dataset/temp.xlsx")
+    wb.save("Dataset/temp.xlsx")
 
 def updateFeatureList(feature_list, ranks, X, name):
-    wb = load_workbook("../Dataset/temp.xlsx")
+    wb = load_workbook("Dataset/temp.xlsx")
     ws = wb.create_sheet(name)
     new_list = list()
-    filename = '../Dataset/temp.xlsx'
+    filename = 'Dataset/temp.xlsx'
     #wcell1 = ws.cell(1, 1, "Feature")
     #wcell2 = ws.cell(1, 2, "Rank")
     col=1

@@ -1,24 +1,13 @@
 from sklearn.model_selection import train_test_split
 from featureSelectAndClassify import *
-#from fancyimpute import NuclearNormMinimization
 import pandas as pd
 import numpy as np
-def impute():
-    df = pd.read_excel("../Dataset/temp_noncon.xlsx")
-    data = df.values
-    X = data[:,2:]
-    y = data[:,1]
-    print(X.shape)
-    print(y.shape)
-    impData = NuclearNormMinimization().fit_transform(data)
-    outdf = pd.DataFrame(impData)
-    outdf.to_excel(excel_writer="../Dataset/temp_noncon_imp.xlsx")
 
-def runRFE(dataset='pv', type=None, clfname='svc'):
+def main(dataset='pv', type=None, clfname='svc'):
     if dataset=='noncon':
-        df = pd.read_excel("../Dataset/temp_noncon_imp.xlsx")
+        df = pd.read_excel("Dataset/temp_noncon_imp.xlsx")
     elif dataset=='pv':
-        df = pd.read_excel("../Dataset/temp_pv_imp.xlsx")
+        df = pd.read_excel("Dataset/temp_pv_imp.xlsx")
     data = df.values
     feature_list = df.columns[2:]
     X = data[:, 2:]
@@ -44,4 +33,4 @@ def runRFE(dataset='pv', type=None, clfname='svc'):
     else:
         noRFE(X, y, clfname=clfname, scale=True)
 
-runRFE('pv', 'elim_rfe', clfname='svc')
+main('pv', 'elim_rfe', clfname='svc')
