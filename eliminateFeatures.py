@@ -72,14 +72,14 @@ def eliminateFeaturesRecursivelyWithCV(X, y, clfname, feature_list=None):
     if clfname == 'svc':
         clf = svm.LinearSVC()
     elif clfname == 'rf':
-        clf = RandomForestClassifier(n_estimators=50, max_depth=20)
+        clf = RandomForestClassifier(n_estimators=50, max_depth=10)
 
     kfold = StratifiedKFold(n_splits=5, shuffle=True)
 
     for outer in range(1,3):
         print("\n--------This is outer loop {}---------\n".format(outer))
         for i,(train_o, test_o) in enumerate(kfold.split(X_minmax, y)):
-            print("This is set {}".format(i))
+            print("This is set {}".format(i+1))
             X_train_o = X_minmax[train_o]
             y_train_o = y[train_o]
             X_test_o = X_minmax[test_o]
@@ -87,7 +87,7 @@ def eliminateFeaturesRecursivelyWithCV(X, y, clfname, feature_list=None):
             X_train_transformed = copy.deepcopy(X_train_o)
             X_test_transformed = copy.deepcopy(X_test_o)
 
-            for inner in range(1,3):
+            for inner in range(1,4):
                 n_feat = min(100, X_train_transformed.shape[1])
                 print("\n\t--------This is inner loop {}---------\n".format(inner))
                 rfecv = RFECV(estimator=clf, step=1, min_features_to_select=n_feat, cv=kfold, scoring='roc_auc')
@@ -130,5 +130,5 @@ def noRFE(X, y, clfname, scale=False):
     elif clfname=='rf':
         clf = RandomForestClassifier(n_estimators=10, max_depth=20)
 
-    score = cross_val_score(clf, X, y, cv=StratifiedKFold(5))
+    score = cross_val_score(clf, X, y, cv=StratifiedKFold(n_splits=5, shuffle=True))
     print("{} Classifier gives mean accuracy after CV {:.2f}".format(clfname, score.mean() * 100))

@@ -36,14 +36,13 @@ def runRFE(dataset='pv', type=None, clfname='svc'):
         X_trainNew, X_testNew = eliminateFeaturesRecursively(dataset, X_train, X_test, y_train, y_test, feature_list, clfname=clfname)
         XNew = np.vstack((X_trainNew, X_testNew))
         print("Shape of final data input is {}".format(XNew.shape))
-        noRFE(XNew, y, 'svc')
-        noRFE(XNew, y, 'rf')
+        noRFE(XNew, y, clfname='svc')
+        noRFE(XNew, y, clfname='rf')
     else:
         noRFE(X, y, clfname=clfname, scale=True)
 
 
 def main():
-    runRFE('pv', 'elim_rfecv', clfname='svc')
-    #getICCValues('pv')
+    runRFE('pv', 'elim_rfecv', clfname='rf')
 
 main()
