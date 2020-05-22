@@ -9,7 +9,7 @@ from statistics import mean
 import numpy as np
 import copy
 
-
+# This function updates the feature list after every loop to keep track of the features that are reduced.
 def updateFeatures(feature_list, ranks):
     new_list = list()
     for i,r in enumerate(ranks):
@@ -18,6 +18,7 @@ def updateFeatures(feature_list, ranks):
 
     return new_list
 
+# After nested CV is finished, we want to save the input data with reduced features.
 def saveFeatures(feature_list, ranks, X, name, save='feature_names_only'):
     filename = 'Dataset/temp.xlsx'
     wb = load_workbook(filename)
@@ -45,6 +46,7 @@ def saveFeatures(feature_list, ranks, X, name, save='feature_names_only'):
     wb.save(filename)
     return
 
+# The function performs RFE with CV. This was just used for testing purposes
 def eliminateFeaturesRecursively(dataset, X_train, X_test, y_train, y_test, feature_list, clfname):
     if dataset=='pv':
         features = [450, 400, 350, 300, 250, 200, 150, 100, 50]
@@ -81,22 +83,32 @@ def eliminateFeaturesRecursively(dataset, X_train, X_test, y_train, y_test, feat
 
     return X_train_minmax, X_test_minmax
 
+
+# This is the function that performs RFE with CV using nested CV.
 def eliminateFeaturesRecursivelyWithCV(X, y, clfname, feature_list):
+    # Set the number of inner loops needed to perform. May vary depending on the dataset. Its is suggestive
+    # to use atleast 2 for each loop
     outer_loop = 2
     inner_loop = 2
+
+    # Store the original feature list and normalize the data
     list_temp = feature_list
     scaler = StandardScaler()
     X_minmax = scaler.fit_transform(X)
     scores = []
+
+    # Choose which classifier you need to use to perform RFECV with
     if clfname == 'svc':
         clf = svm.LinearSVC()
     elif clfname == 'rf':
         clf = RandomForestClassifier(n_estimators=20, max_depth=10)
 
+    # Determine the number of folds to be used.
     kfold = StratifiedKFold(n_splits=5, shuffle=True)
 
     for outer in range(outer_loop):
         print("\n--------This is outer loop {}---------\n".format(outer+1))
+        # Run the outer loop from here
         for i,(train_o, test_o) in enumerate(kfold.split(X_minmax, y)):
             print("This is set {}".format(i+1))
             X_train_o = X_minmax[train_o]
@@ -106,12 +118,20 @@ def eliminateFeaturesRecursivelyWithCV(X, y, clfname, feature_list):
             X_train_transformed = copy.deepcopy(X_train_o)
             X_test_transformed = copy.deepcopy(X_test_o)
 
+            # Run the inner loop from here
             for inner in range(inner_loop):
+                # If the number of features are very high (>100), we set the minimum number of features needed to be 100.
+                # If the numnber of features are moderate (15-100), we set the minimum number of features to be 10
+                # less than already present
                 n_feat = min(100, X_train_transformed.shape[1]-10)
+
+                # If the number of features are less (<15), then we want it to select atleast 5 features to continue the loop
                 n_feat = max(5, n_feat)
                 list_temp_prev = list_temp
                 print("\n\t--------This is inner loop {}---------\n".format(inner+1))
                 rfecv = RFECV(estimator=clf, step=1, min_features_to_select=n_feat, cv=kfold, scoring='roc_auc')
+
+                # Transform the datasets at each loop to keep track of reduced features
                 X_train_transformed = rfecv.fit_transform(X_train_transformed, y_train_o)
                 X_test_transformed = rfecv.transform(X_test_transformed)
                 X_minmax = rfecv.transform(X_minmax)
@@ -119,21 +139,26 @@ def eliminateFeaturesRecursivelyWithCV(X, y, clfname, feature_list):
                 print("\tShape of transformed train dataset is: {}".format(X_train_transformed.shape))
                 print("\tOptimal no. of features are: {}".format(features))
                 ranking = rfecv.ranking_
+
+                # Update the feature list here
                 list_temp = updateFeatures(list_temp_prev, ranking)
 
+            # This is just used to check the score after inner loop is finished as the test data was already transformed
+            # to reduced features. Hence we inverse the transform to check the score
             X_temp = rfecv.inverse_transform(X_test_transformed)
             score = rfecv.score(X_temp, y_test_o)
             scores.append(score)
             print("Shape of transformed train dataset is: {}".format(X_train_transformed.shape))
             print("Shape of ranks is: {}\n\n".format(ranking.shape))
 
+    # Print the average scores after finshing the outer loop and save the features in an excel file
     print("After outer loop CV, mean score is: {}".format(mean(scores)))
     X_final = np.vstack((X_train_transformed, X_test_transformed))
-    #print("Shape of X_final is: {}, shape of final_list is: {}, Shape of ranking is: {}".format(X_final.shape, len(list_temp_prev), ranking.shape))
     saveFeatures(list_temp_prev, ranking, X_final, 'Final_List')
 
     return X_final
 
+# This runs SVM and RF forest on the dataset and gives a CV score average.
 def noRFE(X, y, clfname, scale=False):
     if scale:
         scaler = StandardScaler()
