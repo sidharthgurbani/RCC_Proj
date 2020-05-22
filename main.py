@@ -7,7 +7,7 @@ import numpy as np
 
 warnings.filterwarnings("ignore")
 
-def runRFE(dataset='pv', type=None, clfname='svc'):
+def runRFE(dataset, type, clfname):
     if dataset=='noncon':
         df = pd.read_excel("Dataset/temp_noncon_imp.xlsx")
     elif dataset=='pv':
@@ -24,25 +24,32 @@ def runRFE(dataset='pv', type=None, clfname='svc'):
 
     if type=='rfecv':
         featureSelectAndClassifyRFECV(X_train, X_test, y_train, y_test, clfname)
+
     elif type=='rfe':
         featureranks = featureSelectAndClassifyRFE(X, X_test, y, y_test, clfname)
         writeToExcelFile(featureranks)
+
     elif type=='elim_rfecv':
-        XNew = eliminateFeaturesRecursivelyWithCV(X, y, clfname=clfname)
+        XNew = eliminateFeaturesRecursivelyWithCV(X, y, clfname=clfname, feature_list=feature_list)
         print("Shape of final data input is {}".format(XNew.shape))
         noRFE(XNew, y, 'svc')
         noRFE(XNew, y, 'rf')
+
     elif type=='elim_rfe':
         X_trainNew, X_testNew = eliminateFeaturesRecursively(dataset, X_train, X_test, y_train, y_test, feature_list, clfname=clfname)
         XNew = np.vstack((X_trainNew, X_testNew))
         print("Shape of final data input is {}".format(XNew.shape))
         noRFE(XNew, y, clfname='svc')
         noRFE(XNew, y, clfname='rf')
-    else:
+
+    elif type=='no_rfe':
         noRFE(X, y, clfname=clfname, scale=True)
+
+    else:
+        print("Error!!! Incorrect type of RFE selected!! Please check type argument again.")
 
 
 def main():
-    runRFE('pv', 'elim_rfecv', clfname='rf')
+    runRFE(dataset='pv', type='elim_rfecv', clfname='svc')
 
 main()
