@@ -46,13 +46,28 @@ def saveFeatures(feature_list, ranks, X, name, save='feature_names_only'):
     wb.save(filename)
     return
 
+def getFeatureWeights(feature_list, features):
+    filename = 'Dataset/temp.xlsx'
+    wb = load_workbook(filename)
+    ws = wb.create_sheet('feature_weights')
+    wcell1 = ws.cell(1,1, 'Feature')
+    wcell1.font = Font(bold=True)
+    wcell2 = ws.cell(1,2, 'Weights')
+    wcell2.font = Font(bold=True)
+    for i,val in enumerate(features):
+        wcell1 = ws.cell(i+2, 1, feature_list[i])
+        wcell2 = ws.cell(i+2, 2, val)
+
+    wb.save(filename)
+    return
+
 # The function performs RFE with CV. This was just used for testing purposes
 def eliminateFeaturesRecursively(dataset, X_train, X_test, y_train, y_test, feature_list, clfname):
     if dataset=='pv':
         features = [450, 400, 350, 300, 250, 200, 150, 100, 50]
     elif dataset=='noncon':
         features = [300, 250,200, 150, 100, 50]
-    list_temp = feature_list
+    #list_temp = feature_list
     scaler = StandardScaler()
     X_train_minmax = scaler.fit_transform(X_train)
     X_test_minmax = scaler.transform(X_test)
@@ -75,8 +90,8 @@ def eliminateFeaturesRecursively(dataset, X_train, X_test, y_train, y_test, feat
         print("Optimal no. of features are: {}".format(rfe.n_features_))
         print("Mean Score of transformed dataset with CV is: {:.2f}".format(score))
         ranks.append(rfe.ranking_)
-        name = "Top" + str(feat)
-        list_temp = updateFeatureList(list_temp, rfe.ranking_, X_train_minmax, name)
+        #name = "Top" + str(feat)
+        #list_temp = updateFeatureList(list_temp, rfe.ranking_, X_train_minmax, name)
         print("Shape of ranks is: {}\n\n".format(ranks[i].shape))
         X_train_minmax = copy.deepcopy(X_train_transformed)
         X_test_minmax = copy.deepcopy(X_test_transformed)
@@ -129,7 +144,7 @@ def eliminateFeaturesRecursivelyWithCV(X, y, clfname, feature_list):
                 n_feat = max(5, n_feat)
                 list_temp_prev = list_temp
                 print("\n\t--------This is inner loop {}---------\n".format(inner+1))
-                rfecv = RFECV(estimator=clf, step=1, min_features_to_select=n_feat, cv=kfold, scoring='roc_auc')
+                rfecv = RFECV(estimator=clf, step=1, min_features_to_select=n_feat, cv=kfold, scoring='accuracy')
 
                 # Transform the datasets at each loop to keep track of reduced features
                 X_train_transformed = rfecv.fit_transform(X_train_transformed, y_train_o)
@@ -171,6 +186,37 @@ def noRFE(X, y, clfname, scale=False):
     score = cross_val_score(clf, X, y, cv=StratifiedKFold(n_splits=5, shuffle=True))
     print("{} Classifier gives mean accuracy after CV {:.2f}".format(clfname, score.mean() * 100))
 
+def updateList(X, feat_imp):
+    #new_feat = np.zeros((1))
+    new_feat = list()
+    #index = 1
+    X_new = np.zeros((X.shape[0]))
+    for i in range(feat_imp.shape[0]):
+        val = feat_imp[i]
+        if val > 0:
+            #np.insert(new_feat, index, val)
+            #index += 1
+            new_feat.append(val)
+            col = X[:,i]
+            X_new = np.vstack((X_new, col))
+
+    X_new = X_new[1:,:].T
+    return X_new, new_feat
+
+
+def justRF(X, y, feature_list):
+    scaler = StandardScaler()
+    X = scaler.fit_transform(X)
+    clf = RandomForestClassifier(n_estimators=10, max_depth=20)
+    clf.fit(X,y)
+    feat_imp = clf.feature_importances_
+    print(feat_imp.shape)
+    print(feat_imp)
+    getFeatureWeights(feature_list, feat_imp)
+    X_new, new_feat = updateList(X, feat_imp)
+    print(X_new.shape)
+    print(len(new_feat))
+    return X_new
 
 # def updateFeatureList(feature_list, ranks, X, name):
 #     wb = load_workbook("Dataset/temp.xlsx")

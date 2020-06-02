@@ -1,12 +1,18 @@
 import pandas as pd
-from fancyimpute import NuclearNormMinimization
+from sklearn.experimental import enable_iterative_imputer
+from sklearn.impute import IterativeImputer
 
-def impute(df):
+def impute():
+    name = "Dataset/temp_noncon-healthmyne-clinicalMLanon.xlsx"
+    name1 = "Dataset/temp_noncon-healthmyne-clinicalMLanon_imp.xlsx"
+    df = pd.read_excel(name)
     data = df.values
-    X = data[:,2:]
-    y = data[:,1]
+    X = data[:,8:]
+    y = data[:,2]
     print(X.shape)
     print(y.shape)
-    impData = NuclearNormMinimization().fit_transform(data)
+    imp = IterativeImputer()
+    impData = imp.fit_transform(data)
+    print(impData.shape)
     outdf = pd.DataFrame(impData)
-    outdf.to_excel(excel_writer="../Dataset/temp_noncon_imp.xlsx")
+    outdf.to_excel(excel_writer=name1)
