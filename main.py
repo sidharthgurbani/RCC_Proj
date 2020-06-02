@@ -91,6 +91,6 @@ def runRFE(dataset, type, clfname):
 
 
 def main():
-    runRFE(dataset='noncon_anon', type='elim_rfecv', clfname='rf')
+    runRFE(dataset='noncon_anon', type='elim_rfecv', clfname='svc')
 
 main()
