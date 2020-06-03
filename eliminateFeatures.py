@@ -46,21 +46,6 @@ def saveFeatures(feature_list, ranks, X, name, save='feature_names_only'):
     wb.save(filename)
     return
 
-def getFeatureWeights(feature_list, features):
-    filename = 'Dataset/temp.xlsx'
-    wb = load_workbook(filename)
-    ws = wb.create_sheet('feature_weights')
-    wcell1 = ws.cell(1,1, 'Feature')
-    wcell1.font = Font(bold=True)
-    wcell2 = ws.cell(1,2, 'Weights')
-    wcell2.font = Font(bold=True)
-    for i,val in enumerate(features):
-        wcell1 = ws.cell(i+2, 1, feature_list[i])
-        wcell2 = ws.cell(i+2, 2, val)
-
-    wb.save(filename)
-    return
-
 # The function performs RFE with CV. This was just used for testing purposes
 def eliminateFeaturesRecursively(dataset, X_train, X_test, y_train, y_test, feature_list, clfname):
     if dataset=='pv':
@@ -103,8 +88,8 @@ def eliminateFeaturesRecursively(dataset, X_train, X_test, y_train, y_test, feat
 def eliminateFeaturesRecursivelyWithCV(X, y, clfname, feature_list):
     # Set the number of inner loops needed to perform. May vary depending on the dataset. Its is suggestive
     # to use atleast 2 for each loop
-    outer_loop = 2
-    inner_loop = 2
+    outer_loop = 1
+    inner_loop = 1
 
     # Store the original feature list and normalize the data
     list_temp = feature_list
@@ -184,18 +169,33 @@ def noRFE(X, y, clfname, scale=False):
         clf = RandomForestClassifier(n_estimators=10, max_depth=20)
 
     score = cross_val_score(clf, X, y, cv=StratifiedKFold(n_splits=5, shuffle=True))
-    print("{} Classifier gives mean accuracy after CV {:.2f}".format(clfname, score.mean() * 100))
+    print("{} Classifier gives mean accuracy after CV {:.2f}%".format(clfname, score.mean() * 100))
+
+def getFeatureWeights(feature_list, features):
+    filename = 'Dataset/temp.xlsx'
+    wb = load_workbook(filename)
+    ws = wb.create_sheet('feature_weights')
+    wcell1 = ws.cell(1,1, 'Feature')
+    wcell1.font = Font(bold=True)
+    wcell2 = ws.cell(1,2, 'Weights')
+    wcell2.font = Font(bold=True)
+    index = 0
+    for i,val in enumerate(features):
+        if val > 0.01:
+            wcell1 = ws.cell(index+2, 1, feature_list[i])
+            wcell2 = ws.cell(index+2, 2, val)
+            index += 1
+
+    wb.save(filename)
+    return
 
 def updateList(X, feat_imp):
     #new_feat = np.zeros((1))
     new_feat = list()
     #index = 1
     X_new = np.zeros((X.shape[0]))
-    for i in range(feat_imp.shape[0]):
-        val = feat_imp[i]
-        if val > 0:
-            #np.insert(new_feat, index, val)
-            #index += 1
+    for i, val in enumerate(feat_imp):
+        if val > 0.01:
             new_feat.append(val)
             col = X[:,i]
             X_new = np.vstack((X_new, col))

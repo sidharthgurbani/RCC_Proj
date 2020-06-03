@@ -6,35 +6,39 @@ import pandas as pd
 import numpy as np
 
 warnings.filterwarnings("ignore")
-
-def runRFE(dataset, type, clfname):
+def getDataset(dataset):
     # Choose the dataset accordingly and set the X,y and feature values
-    if dataset=='noncon':
+    if dataset == 'noncon_sarc':
         df = pd.read_excel("Dataset/temp_noncon_imp.xlsx")
         data = df.values
         feature_list = df.columns[2:]
         X = data[:, 2:]
         y = data[:, 1]
-    elif dataset=='pv':
+    elif dataset == 'pv_sarc':
         df = pd.read_excel("Dataset/temp_pv_imp.xlsx")
         data = df.values
         feature_list = df.columns[2:]
         X = data[:, 2:]
         y = data[:, 1]
-    elif dataset == 'noncon_anon':
+    elif dataset == 'noncon_fgrade':
         df = pd.read_excel("Dataset/temp_noncon-healthmyne-clinicalMLanon_imp.xlsx")
         data = df.values
         feature_list = df.columns[8:]
         X = data[:, 8:]
         y = data[:, 2]
-    elif dataset=='pv_anon':
+    elif dataset == 'pv_fgrade':
         df = pd.read_excel("Dataset/temp_pv-healthmyne-clinicalanon_imp.xlsx")
         data = df.values
         feature_list = df.columns[8:]
         X = data[:, 8:]
         y = data[:, 2]
 
+    return X, y, feature_list
 
+
+def runRFE(dataset, type, clfname):
+    # Choose the dataset accordingly and set the X,y and feature values
+    X, y, feature_list = getDataset(dataset)
 
     # Split the train and test dataset.
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
@@ -91,6 +95,6 @@ def runRFE(dataset, type, clfname):
 
 
 def main():
-    runRFE(dataset='noncon_anon', type='elim_rfecv', clfname='svc')
+    runRFE(dataset='pv_fgrade', type='just_rf', clfname='svc')
 
 main()
