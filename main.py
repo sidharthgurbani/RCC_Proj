@@ -69,7 +69,6 @@ def runRFE(dataset, type, clfname):
         # for testing again using CV with Support Vector Machine Classifier and Random Forest Classifier
         XNew = eliminateFeaturesRecursivelyWithCV(X, y, clfname=clfname, feature_list=feature_list)
         print("Shape of final data input is {}".format(XNew.shape))
-        noRFE(XNew, y, 'svc')
         noRFE(XNew, y, 'rf')
 
     elif type=='elim_rfe':
@@ -78,7 +77,6 @@ def runRFE(dataset, type, clfname):
         X_trainNew, X_testNew = eliminateFeaturesRecursively(dataset, X_train, X_test, y_train, y_test, feature_list, clfname=clfname)
         XNew = np.vstack((X_trainNew, X_testNew))
         print("Shape of final data input is {}".format(XNew.shape))
-        noRFE(XNew, y, clfname='svc')
         noRFE(XNew, y, clfname='rf')
 
     elif type=='no_rfe':
@@ -87,7 +85,6 @@ def runRFE(dataset, type, clfname):
 
     elif type=='just_rf':
         X_new = justRF(X, y, feature_list)
-        noRFE(X_new, y, 'svc')
         noRFE(X_new, y, 'rf')
 
     else:
@@ -95,6 +92,6 @@ def runRFE(dataset, type, clfname):
 
 
 def main():
-    runRFE(dataset='pv_fgrade', type='just_rf', clfname='svc')
+    runRFE(dataset='pv_fgrade', type='elim_rfecv', clfname='rf')
 
 main()

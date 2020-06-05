@@ -30,7 +30,7 @@ def saveFeatures(feature_list, ranks, X, name, save='feature_names_only'):
         if (r == 1):
             if save=='feature_names_only':
                 wcell1 = ws.cell(col, 1, feature_list[i])
-                wcell1.font = Font(bold=True)
+                #wcell1.font = Font(bold=True)
                 col += 1
             elif save=='feature_names_and_data':
                 wcell1 = ws.cell(1, col, feature_list[i])
@@ -83,6 +83,15 @@ def eliminateFeaturesRecursively(dataset, X_train, X_test, y_train, y_test, feat
 
     return X_train_minmax, X_test_minmax
 
+def getTop10(feature_list, X, y):
+    print("Selecting just the top 10 features")
+    clf = RandomForestClassifier(n_estimators=50, max_depth=20)
+    rfe = RFE(estimator=clf, step=1, n_features_to_select=10)
+    X_new = rfe.fit_transform(X, y)
+    print("Shape of X is now: {}".format(X_new.shape))
+    ranking = rfe.ranking_
+    saveFeatures(feature_list, ranking, X_new, 'Top10')
+
 
 # This is the function that performs RFE with CV using nested CV.
 def eliminateFeaturesRecursivelyWithCV(X, y, clfname, feature_list):
@@ -126,7 +135,7 @@ def eliminateFeaturesRecursivelyWithCV(X, y, clfname, feature_list):
                 n_feat = min(100, X_train_transformed.shape[1]-10)
 
                 # If the number of features are less (<15), then we want it to select atleast 5 features to continue the loop
-                n_feat = max(5, n_feat)
+                n_feat = max(10, n_feat)
                 list_temp_prev = list_temp
                 print("\n\t--------This is inner loop {}---------\n".format(inner+1))
                 rfecv = RFECV(estimator=clf, step=1, min_features_to_select=n_feat, cv=kfold, scoring='accuracy')
@@ -154,7 +163,8 @@ def eliminateFeaturesRecursivelyWithCV(X, y, clfname, feature_list):
     # Print the average scores after finshing the outer loop and save the features in an excel file
     print("After outer loop CV, mean score is: {}".format(mean(scores)))
     X_final = np.vstack((X_train_transformed, X_test_transformed))
-    saveFeatures(list_temp_prev, ranking, X_final, 'Final_List')
+    getTop10(list_temp_prev, X_final, y)
+    #saveFeatures(list_temp_prev, ranking, X_final, 'Final_List')
 
     return X_final
 
@@ -171,7 +181,7 @@ def noRFE(X, y, clfname, scale=False):
     score = cross_val_score(clf, X, y, cv=StratifiedKFold(n_splits=5, shuffle=True))
     print("{} Classifier gives mean accuracy after CV {:.2f}%".format(clfname, score.mean() * 100))
 
-def getFeatureWeights(feature_list, features):
+def saveFeatureWeights(feature_list, features):
     filename = 'Dataset/temp.xlsx'
     wb = load_workbook(filename)
     ws = wb.create_sheet('feature_weights')
@@ -181,7 +191,7 @@ def getFeatureWeights(feature_list, features):
     wcell2.font = Font(bold=True)
     index = 0
     for i,val in enumerate(features):
-        if val > 0.01:
+        if val >= 0:
             wcell1 = ws.cell(index+2, 1, feature_list[i])
             wcell2 = ws.cell(index+2, 2, val)
             index += 1
@@ -190,9 +200,7 @@ def getFeatureWeights(feature_list, features):
     return
 
 def updateList(X, feat_imp):
-    #new_feat = np.zeros((1))
     new_feat = list()
-    #index = 1
     X_new = np.zeros((X.shape[0]))
     for i, val in enumerate(feat_imp):
         if val > 0.01:
@@ -212,28 +220,9 @@ def justRF(X, y, feature_list):
     feat_imp = clf.feature_importances_
     print(feat_imp.shape)
     print(feat_imp)
-    getFeatureWeights(feature_list, feat_imp)
+    saveFeatureWeights(feature_list, feat_imp)
     X_new, new_feat = updateList(X, feat_imp)
     print(X_new.shape)
     print(len(new_feat))
     return X_new
 
-# def updateFeatureList(feature_list, ranks, X, name):
-#     wb = load_workbook("Dataset/temp.xlsx")
-#     ws = wb.create_sheet(name)
-#     new_list = list()
-#     filename = 'Dataset/temp.xlsx'
-#     #wcell1 = ws.cell(1, 1, "Feature")
-#     #wcell2 = ws.cell(1, 2, "Rank")
-#     col=1
-#     #dict = {}
-#     for i,r in enumerate(ranks):
-#         if (r == 1):
-#             new_list.append(feature_list[i])
-#             wcell1 = ws.cell(1, col, feature_list[i])
-#             for row, val in enumerate(X[:,i]):
-#                 wcell2 = ws.cell(row+2, col ,val)
-#             col += 1
-#
-#     wb.save(filename)
-#     return new_list
