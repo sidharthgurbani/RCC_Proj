@@ -1,6 +1,6 @@
 from sklearn.model_selection import train_test_split
 from featureSelectAndClassify import featureSelectAndClassifyRFE, featureSelectAndClassifyRFECV, writeToExcelFile
-from eliminateFeatures import eliminateFeaturesRecursively, eliminateFeaturesRecursivelyWithCV, noRFE, justRF
+from eliminateFeatures import eliminateFeaturesRecursively, eliminateFeaturesRecursivelyWithCV, noRFE, justRF, getPearsonCorrelation
 import warnings
 import pandas as pd
 import numpy as np
@@ -10,35 +10,34 @@ def getDataset(dataset):
     # Choose the dataset accordingly and set the X,y and feature values
     if dataset == 'noncon_sarc':
         df = pd.read_excel("Dataset/temp_noncon_imp.xlsx")
-        data = df.values
+        X = df.drop(["Case", "sarc"], axis=1)
+        y = df["sarc"]
         feature_list = df.columns[2:]
-        X = data[:, 2:]
-        y = data[:, 1]
+
     elif dataset == 'pv_sarc':
         df = pd.read_excel("Dataset/temp_pv_imp.xlsx")
-        data = df.values
+        X = df.drop(["Case", "sarc"], axis=1)
+        y = df["sarc"]
         feature_list = df.columns[2:]
-        X = data[:, 2:]
-        y = data[:, 1]
+
     elif dataset == 'noncon_fgrade':
         df = pd.read_excel("Dataset/temp_noncon-healthmyne-clinicalMLanon_imp.xlsx")
-        data = df.values
+        X = df.drop(["Case", "rcctype", "fgrade", "perineph", "recurr", "fucond", "deceased", "survival"], axis=1)
+        y = df["fgrade"]
         feature_list = df.columns[8:]
-        X = data[:, 8:]
-        y = data[:, 2]
+
     elif dataset == 'pv_fgrade':
         df = pd.read_excel("Dataset/temp_pv-healthmyne-clinicalanon_imp.xlsx")
-        data = df.values
+        X = df.drop(["Case", "rcctype", "fgrade", "perineph", "recurr", "fucond", "deceased", "survival"], axis=1)
+        y = df["fgrade"]
         feature_list = df.columns[8:]
-        X = data[:, 8:]
-        y = data[:, 2]
 
-    return X, y, feature_list
+    return X, y, feature_list, df
 
 
 def runRFE(dataset, type, clfname):
     # Choose the dataset accordingly and set the X,y and feature values
-    X, y, feature_list = getDataset(dataset)
+    X, y, feature_list, df = getDataset(dataset)
 
     # Split the train and test dataset.
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
@@ -87,11 +86,14 @@ def runRFE(dataset, type, clfname):
         X_new = justRF(X, y, feature_list)
         noRFE(X_new, y, 'rf')
 
+    elif type=='pearson':
+        getPearsonCorrelation(df, "Dataset/pearsonCorr_" + dataset + ".xlsx")
+
     else:
         print("Error!!! Incorrect type of RFE selected!! Please check type argument again.")
 
 
 def main():
-    runRFE(dataset='pv_fgrade', type='elim_rfecv', clfname='rf')
+    runRFE(dataset='pv_sarc', type='pearson', clfname='rf')
 
 main()

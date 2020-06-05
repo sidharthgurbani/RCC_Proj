@@ -6,6 +6,8 @@ from sklearn.preprocessing import StandardScaler
 from openpyxl import load_workbook
 from openpyxl.styles import Font
 from statistics import mean
+import seaborn as sns
+import matplotlib.pyplot as plt
 import numpy as np
 import copy
 
@@ -97,8 +99,8 @@ def getTop10(feature_list, X, y):
 def eliminateFeaturesRecursivelyWithCV(X, y, clfname, feature_list):
     # Set the number of inner loops needed to perform. May vary depending on the dataset. Its is suggestive
     # to use atleast 2 for each loop
-    outer_loop = 1
-    inner_loop = 1
+    outer_loop = 2
+    inner_loop = 2
 
     # Store the original feature list and normalize the data
     list_temp = feature_list
@@ -163,7 +165,7 @@ def eliminateFeaturesRecursivelyWithCV(X, y, clfname, feature_list):
     # Print the average scores after finshing the outer loop and save the features in an excel file
     print("After outer loop CV, mean score is: {}".format(mean(scores)))
     X_final = np.vstack((X_train_transformed, X_test_transformed))
-    getTop10(list_temp_prev, X_final, y)
+    #getTop10(list_temp_prev, X_final, y)
     #saveFeatures(list_temp_prev, ranking, X_final, 'Final_List')
 
     return X_final
@@ -225,4 +227,10 @@ def justRF(X, y, feature_list):
     print(X_new.shape)
     print(len(new_feat))
     return X_new
+
+def getPearsonCorrelation(df, name):
+    print("Pearson Correlation!!")
+    cor = df.corr()
+    cor.to_excel(name)
+
 
