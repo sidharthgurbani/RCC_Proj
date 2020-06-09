@@ -12,32 +12,36 @@ def getDataset(dataset):
         df = pd.read_excel("Dataset/temp_noncon_imp.xlsx")
         X = df.drop(["Case", "sarc"], axis=1)
         y = df["sarc"]
+        target = "sarc"
         feature_list = df.columns[2:]
 
     elif dataset == 'pv_sarc':
         df = pd.read_excel("Dataset/temp_pv_imp.xlsx")
         X = df.drop(["Case", "sarc"], axis=1)
         y = df["sarc"]
+        target = "sarc"
         feature_list = df.columns[2:]
 
     elif dataset == 'noncon_fgrade':
         df = pd.read_excel("Dataset/temp_noncon-healthmyne-clinicalMLanon_imp.xlsx")
         X = df.drop(["Case", "rcctype", "fgrade", "perineph", "recurr", "fucond", "deceased", "survival"], axis=1)
         y = df["fgrade"]
+        target = "fgrade"
         feature_list = df.columns[8:]
 
     elif dataset == 'pv_fgrade':
         df = pd.read_excel("Dataset/temp_pv-healthmyne-clinicalanon_imp.xlsx")
         X = df.drop(["Case", "rcctype", "fgrade", "perineph", "recurr", "fucond", "deceased", "survival"], axis=1)
         y = df["fgrade"]
+        target = "fgrade"
         feature_list = df.columns[8:]
 
-    return X, y, feature_list, df
+    return X, y, feature_list, df, target
 
 
 def runRFE(dataset, type, clfname):
     # Choose the dataset accordingly and set the X,y and feature values
-    X, y, feature_list, df = getDataset(dataset)
+    X, y, feature_list, df, target = getDataset(dataset)
 
     # Split the train and test dataset.
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
@@ -90,9 +94,9 @@ def runRFE(dataset, type, clfname):
         print("\n Obtaining Pearson Correalation Matrix\n")
         cor = getPearsonCorrelation(df, "Dataset/pearsonCorr_" + dataset + ".xlsx")
         print("\n Filtering out highly correlated features\n")
-        new_df = filterHighlyCorrelatedFeatures(df, cor)
-        X1 = new_df.drop(["Case", "sarc"], axis=1)
-        y1 = new_df["sarc"]
+        new_df = filterHighlyCorrelatedFeatures(df, cor, target)
+        X1 = new_df.drop(["Case", target], axis=1)
+        y1 = new_df[target]
         feature_list1 = new_df.columns[2:]
         print("\nGetting accuracy of dataset after filtering these features\n")
         noRFE(X1, y1, clfname='rf')

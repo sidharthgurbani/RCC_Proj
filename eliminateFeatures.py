@@ -3,6 +3,7 @@ from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_selection import RFECV, RFE
 from sklearn.preprocessing import StandardScaler
+from sklearn.inspection import permutation_importance
 from openpyxl import load_workbook
 from openpyxl.styles import Font
 from statistics import mean
@@ -140,10 +141,12 @@ def eliminateFeaturesRecursivelyWithCV(X, y, clfname, feature_list):
                 n_feat = max(10, n_feat)
                 list_temp_prev = list_temp
                 print("\n\t--------This is inner loop {}---------\n".format(inner+1))
-                rfecv = RFECV(estimator=clf, step=1, min_features_to_select=n_feat, cv=kfold, scoring='accuracy')
+                rfecv = RFECV(estimator=clf, step=1, min_features_to_select=n_feat, cv=kfold, scoring='f1')
 
                 # Transform the datasets at each loop to keep track of reduced features
-                X_train_transformed = rfecv.fit_transform(X_train_transformed, y_train_o)
+                X_train = copy.deepcopy(X_train_transformed)
+                fit = rfecv.fit(X_train, y_train_o)
+                X_train_transformed = rfecv.transform(X_train)
                 X_test_transformed = rfecv.transform(X_test_transformed)
                 X_minmax = rfecv.transform(X_minmax)
                 features = rfecv.n_features_
@@ -165,6 +168,8 @@ def eliminateFeaturesRecursivelyWithCV(X, y, clfname, feature_list):
     # Print the average scores after finshing the outer loop and save the features in an excel file
     print("After outer loop CV, mean score is: {}".format(mean(scores)))
     X_final = np.vstack((X_train_transformed, X_test_transformed))
+    print("\n This is RFECV\n")
+    getFeatImportanceFromPermutation(fit, X_train, y_train_o)
     #getTop10(list_temp_prev, X_final, y)
     saveFeatures(list_temp_prev, ranking, X_final, 'Final_List')
 
@@ -218,7 +223,9 @@ def justRF(X, y, feature_list):
     scaler = StandardScaler()
     X = scaler.fit_transform(X)
     clf = RandomForestClassifier(n_estimators=10, max_depth=20)
-    clf.fit(X,y)
+    fit = clf.fit(X,y)
+    print("\n This is just RF\n")
+    getFeatImportanceFromPermutation(fit, X, y)
     feat_imp = clf.feature_importances_
     print(feat_imp.shape)
     print(feat_imp)
@@ -237,8 +244,8 @@ def getPearsonCorrelation(df, name):
     print(cor)
     return cor
 
-def filterHighlyCorrelatedFeatures(df, cor):
-    cor_target = abs(cor["sarc"])
+def filterHighlyCorrelatedFeatures(df, cor, target):
+    cor_target = abs(cor[target])
     cor = cor.abs()
     rel_feat = cor_target[cor_target>0.2]
     print("Printing Relevant Features\n{}".format(rel_feat.shape))
@@ -257,4 +264,8 @@ def filterHighlyCorrelatedFeatures(df, cor):
     new_df.to_excel("Dataset/FinalData.xlsx")
     return new_df
 
+def getFeatImportanceFromPermutation(fit, X, y):
+    result = permutation_importance(fit, X, y)
+    print("\n Importance mean of features are\n {}".format(result.importances_mean))
+    print("\n Importance std dev of features are\n {}".format(result.importances_std))
 
