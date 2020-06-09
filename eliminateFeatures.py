@@ -99,8 +99,8 @@ def getTop10(feature_list, X, y):
 def eliminateFeaturesRecursivelyWithCV(X, y, clfname, feature_list):
     # Set the number of inner loops needed to perform. May vary depending on the dataset. Its is suggestive
     # to use atleast 2 for each loop
-    outer_loop = 2
-    inner_loop = 2
+    outer_loop = 1
+    inner_loop = 1
 
     # Store the original feature list and normalize the data
     list_temp = feature_list
@@ -166,7 +166,7 @@ def eliminateFeaturesRecursivelyWithCV(X, y, clfname, feature_list):
     print("After outer loop CV, mean score is: {}".format(mean(scores)))
     X_final = np.vstack((X_train_transformed, X_test_transformed))
     #getTop10(list_temp_prev, X_final, y)
-    #saveFeatures(list_temp_prev, ranking, X_final, 'Final_List')
+    saveFeatures(list_temp_prev, ranking, X_final, 'Final_List')
 
     return X_final
 
@@ -230,7 +230,31 @@ def justRF(X, y, feature_list):
 
 def getPearsonCorrelation(df, name):
     print("Pearson Correlation!!")
+    df = df[1:]
     cor = df.corr()
     cor.to_excel(name)
+    print(type(cor))
+    print(cor)
+    return cor
+
+def filterHighlyCorrelatedFeatures(df, cor):
+    cor_target = abs(cor["sarc"])
+    cor = cor.abs()
+    rel_feat = cor_target[cor_target>0.2]
+    print("Printing Relevant Features\n{}".format(rel_feat.shape))
+    #print("Printing to drop features:\n{}".format(len(to_drop)))
+    cols = np.full((cor.shape[0], ), True, dtype=bool)
+    for i in range(1, cor.shape[0]):
+        for j in range(i+1, cor.shape[0]):
+            if cor.iloc[i,j] >= 0.85:
+                if cor.iloc[1,i] >= cor.iloc[1,j]:
+                    cols[j] = False
+                else:
+                    cols[i] = False
+
+    selected_cols = df.columns[cols]
+    new_df = df[selected_cols]
+    new_df.to_excel("Dataset/FinalData.xlsx")
+    return new_df
 
 

@@ -1,6 +1,6 @@
 from sklearn.model_selection import train_test_split
 from featureSelectAndClassify import featureSelectAndClassifyRFE, featureSelectAndClassifyRFECV, writeToExcelFile
-from eliminateFeatures import eliminateFeaturesRecursively, eliminateFeaturesRecursivelyWithCV, noRFE, justRF, getPearsonCorrelation
+from eliminateFeatures import eliminateFeaturesRecursively, eliminateFeaturesRecursivelyWithCV, noRFE, justRF, getPearsonCorrelation, filterHighlyCorrelatedFeatures
 import warnings
 import pandas as pd
 import numpy as np
@@ -87,13 +87,30 @@ def runRFE(dataset, type, clfname):
         noRFE(X_new, y, 'rf')
 
     elif type=='pearson':
-        getPearsonCorrelation(df, "Dataset/pearsonCorr_" + dataset + ".xlsx")
+        print("\n Obtaining Pearson Correalation Matrix\n")
+        cor = getPearsonCorrelation(df, "Dataset/pearsonCorr_" + dataset + ".xlsx")
+        print("\n Filtering out highly correlated features\n")
+        new_df = filterHighlyCorrelatedFeatures(df, cor)
+        X1 = new_df.drop(["Case", "sarc"], axis=1)
+        y1 = new_df["sarc"]
+        feature_list1 = new_df.columns[2:]
+        print("\nGetting accuracy of dataset after filtering these features\n")
+        noRFE(X1, y1, clfname='rf')
+        print("\nGetting the weights of these filtered features and checking the accuracy\n")
+        X_RF = justRF(X1, y1, feature_list1)
+        noRFE(X_RF, y1, 'rf')
+        print("\nUsing nested cross-validation on these filtered features and checking the accuracy\n")
+        X_RFECV = eliminateFeaturesRecursivelyWithCV(X1, y1, clfname=clfname, feature_list=feature_list1)
+        print("Shape of final data input is {}".format(X_RFECV.shape))
+        noRFE(X_RFECV, y1, 'rf')
+
+
 
     else:
         print("Error!!! Incorrect type of RFE selected!! Please check type argument again.")
 
 
 def main():
-    runRFE(dataset='pv_sarc', type='pearson', clfname='rf')
+    runRFE(dataset='noncon_sarc', type='pearson', clfname='rf')
 
 main()
