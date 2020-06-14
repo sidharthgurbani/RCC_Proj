@@ -1,9 +1,10 @@
 from sklearn.model_selection import train_test_split
 from featureSelectAndClassify import featureSelectAndClassifyRFE, featureSelectAndClassifyRFECV, writeToExcelFile
-from eliminateFeatures import eliminateFeaturesRecursively, eliminateFeaturesRecursivelyWithCV, noRFE, justRF, getPearsonCorrelation, filterHighlyCorrelatedFeatures
+from eliminateFeatures import *
 import warnings
 import pandas as pd
 import numpy as np
+import models
 
 warnings.filterwarnings("ignore")
 def getDataset(dataset):
@@ -70,44 +71,47 @@ def runRFE(dataset, type, clfname):
         # This performs RFE with CV using nested cross-validation to eliminate features in every loop. At the end of all
         # the outer loops, the final list of features is saved in a file and the dataset with reduced features is sent
         # for testing again using CV with Support Vector Machine Classifier and Random Forest Classifier
-        XNew = eliminateFeaturesRecursivelyWithCV(X, y, clfname=clfname, feature_list=feature_list)
-        print("Shape of final data input is {}".format(XNew.shape))
-        noRFE(XNew, y, 'rf')
-
-    elif type=='elim_rfe':
-        # This follows the procedure of 'elim_rfecv; but hard codes the number of features to eliminate in every loop
-        # rather than letting the algorithm decide. Not very robust.
-        X_trainNew, X_testNew = eliminateFeaturesRecursively(dataset, X_train, X_test, y_train, y_test, feature_list, clfname=clfname)
-        XNew = np.vstack((X_trainNew, X_testNew))
-        print("Shape of final data input is {}".format(XNew.shape))
-        noRFE(XNew, y, clfname='rf')
+        nestedCV_temp(X, y, feature_list)
+        #XNew = eliminateFeaturesRecursivelyWithCV(X, y, clfname=clfname, feature_list=feature_list)
+        #print("Shape of final data input is {}".format(XNew.shape))
+        #noRFE(XNew, y, 'rf')
 
     elif type=='no_rfe':
         # This is the baseline approach to check the performs of SVMs and RF over the entire dataset. Used for comparison.
         noRFE(X, y, clfname=clfname, scale=True)
 
     elif type=='just_rf':
-        X_new = justRF(X, y, feature_list)
-        noRFE(X_new, y, 'rf')
+        justRF_temp(X, y, feature_list)
+        #X_new = justRF(X, y, feature_list)
+        #noRFE(X_new, y, 'rf')
 
     elif type=='pearson':
-        print("\n Obtaining Pearson Correalation Matrix\n")
-        cor = getPearsonCorrelation(df, "Dataset/pearsonCorr_" + dataset + ".xlsx")
-        print("\n Filtering out highly correlated features\n")
-        new_df = filterHighlyCorrelatedFeatures(df, cor, target)
-        X1 = new_df.drop(["Case", target], axis=1)
-        y1 = new_df[target]
-        feature_list1 = new_df.columns[2:]
-        print("\nGetting accuracy of dataset after filtering these features\n")
-        noRFE(X1, y1, clfname='rf')
-        print("\nGetting the weights of these filtered features and checking the accuracy\n")
-        X_RF = justRF(X1, y1, feature_list1)
-        noRFE(X_RF, y1, 'rf')
-        print("\nUsing nested cross-validation on these filtered features and checking the accuracy\n")
-        X_RFECV = eliminateFeaturesRecursivelyWithCV(X1, y1, clfname=clfname, feature_list=feature_list1)
-        print("Shape of final data input is {}".format(X_RFECV.shape))
-        noRFE(X_RFECV, y1, 'rf')
+        print("\n This is baseline accuracy\n")
+        noRFE(X, y, scale=True)
+        permute = True
+        X, y, feature_list = pearson_temp(df, dataset, target)
+        runPostFiltering(X, y, feature_list=feature_list)
+        if permute==True:
+            print("\nRunning with permuted target variables\n")
+            y = np.random.permutation(y)
+            runPostFiltering(X, y, feature_list=feature_list)
 
+    elif type=='permutation_test':
+        print("\n Running permutation test score\n")
+        Xp, yp, feature_list = pearson_temp(df, dataset, target)
+        print("Shape of X after filtering is {}".format(X.shape))
+        m = False
+        if m==True:
+            model = models.nestedRFECV(feature_list)
+        else:
+            model = models.RF(feature_list)
+
+        #model = None
+        #model.fit(X, y)
+        #score = model.score(y)
+        #print("Final sore with just RF is {:.2f}%".format(score.mean() * 100))
+        permutationTest(X, y, model=model)
+        permutationTest(Xp, yp, model=model)
 
 
     else:
@@ -115,6 +119,6 @@ def runRFE(dataset, type, clfname):
 
 
 def main():
-    runRFE(dataset='noncon_sarc', type='pearson', clfname='rf')
+    runRFE(dataset='noncon_sarc', type='just_rf', clfname='rf')
 
 main()

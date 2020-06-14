@@ -1,271 +1,61 @@
 from sklearn import svm
-from sklearn.model_selection import StratifiedKFold, cross_val_score
+from sklearn.model_selection import StratifiedKFold, cross_val_score, train_test_split, permutation_test_score
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.feature_selection import RFECV, RFE
 from sklearn.preprocessing import StandardScaler
 from sklearn.inspection import permutation_importance
-from openpyxl import load_workbook
-from openpyxl.styles import Font
-from statistics import mean
-import seaborn as sns
-import matplotlib.pyplot as plt
-import numpy as np
-import copy
+import models
 
-# This function updates the feature list after every loop to keep track of the features that are reduced.
-def updateFeatures(feature_list, ranks):
-    new_list = list()
-    for i,r in enumerate(ranks):
-        if (r==1):
-            new_list.append(feature_list[i])
-
-    return new_list
-
-# After nested CV is finished, we want to save the input data with reduced features.
-def saveFeatures(feature_list, ranks, X, name, save='feature_names_only'):
-    filename = 'Dataset/temp.xlsx'
-    wb = load_workbook(filename)
-    ws = wb.create_sheet(name)
-    col=1
-    j=0
-
-    for i,r in enumerate(ranks):
-        if (r == 1):
-            if save=='feature_names_only':
-                wcell1 = ws.cell(col, 1, feature_list[i])
-                #wcell1.font = Font(bold=True)
-                col += 1
-            elif save=='feature_names_and_data':
-                wcell1 = ws.cell(1, col, feature_list[i])
-                wcell1.font = Font(bold=True)
-                for row, val in enumerate(X[:,j]):
-                    wcell2 = ws.cell(row+2, col ,val)
-                j += 1
-                col += 1
-            else:
-                print("\nPlease mention what you want to save!\n")
-
-
-    wb.save(filename)
-    return
-
-# The function performs RFE with CV. This was just used for testing purposes
-def eliminateFeaturesRecursively(dataset, X_train, X_test, y_train, y_test, feature_list, clfname):
-    if dataset=='pv':
-        features = [450, 400, 350, 300, 250, 200, 150, 100, 50]
-    elif dataset=='noncon':
-        features = [300, 250,200, 150, 100, 50]
-    #list_temp = feature_list
-    scaler = StandardScaler()
-    X_train_minmax = scaler.fit_transform(X_train)
-    X_test_minmax = scaler.transform(X_test)
-    ranks = []
-    scores = []
-    for i,feat in enumerate(features):
-        if clfname=='svc':
-            clf = svm.LinearSVC()
-        elif clfname=='rf':
-            clf = RandomForestClassifier(n_estimators=50, max_depth=20)
-
-        rfe = RFE(estimator=clf, step=1, n_features_to_select=feat)
-
-        X_train_transformed = rfe.fit_transform(X_train_minmax, y_train)
-        X_test_transformed = rfe.transform(X_test_minmax)
-        score = rfe.score(X_test_minmax, y_test)
-        scores.append(score)
-        print("For number of features = {}\n".format(feat))
-        print("Shape of transformed train dataset is: {}".format(X_train_transformed.shape))
-        print("Optimal no. of features are: {}".format(rfe.n_features_))
-        print("Mean Score of transformed dataset with CV is: {:.2f}".format(score))
-        ranks.append(rfe.ranking_)
-        #name = "Top" + str(feat)
-        #list_temp = updateFeatureList(list_temp, rfe.ranking_, X_train_minmax, name)
-        print("Shape of ranks is: {}\n\n".format(ranks[i].shape))
-        X_train_minmax = copy.deepcopy(X_train_transformed)
-        X_test_minmax = copy.deepcopy(X_test_transformed)
-
-    return X_train_minmax, X_test_minmax
-
-def getTop10(feature_list, X, y):
-    print("Selecting just the top 10 features")
-    clf = RandomForestClassifier(n_estimators=50, max_depth=20)
-    rfe = RFE(estimator=clf, step=1, n_features_to_select=10)
-    X_new = rfe.fit_transform(X, y)
-    print("Shape of X is now: {}".format(X_new.shape))
-    ranking = rfe.ranking_
-    saveFeatures(feature_list, ranking, X_new, 'Top10')
-
-
-# This is the function that performs RFE with CV using nested CV.
-def eliminateFeaturesRecursivelyWithCV(X, y, clfname, feature_list):
-    # Set the number of inner loops needed to perform. May vary depending on the dataset. Its is suggestive
-    # to use atleast 2 for each loop
-    outer_loop = 1
-    inner_loop = 1
-
-    # Store the original feature list and normalize the data
-    list_temp = feature_list
-    scaler = StandardScaler()
-    X_minmax = scaler.fit_transform(X)
-    scores = []
-
-    # Choose which classifier you need to use to perform RFECV with
-    if clfname == 'svc':
-        clf = svm.LinearSVC()
-    elif clfname == 'rf':
-        clf = RandomForestClassifier(n_estimators=20, max_depth=10)
-
-    # Determine the number of folds to be used.
-    kfold = StratifiedKFold(n_splits=5, shuffle=True)
-
-    for outer in range(outer_loop):
-        print("\n--------This is outer loop {}---------\n".format(outer+1))
-        # Run the outer loop from here
-        for i,(train_o, test_o) in enumerate(kfold.split(X_minmax, y)):
-            print("This is set {}".format(i+1))
-            X_train_o = X_minmax[train_o]
-            y_train_o = y[train_o]
-            X_test_o = X_minmax[test_o]
-            y_test_o = y[test_o]
-            X_train_transformed = copy.deepcopy(X_train_o)
-            X_test_transformed = copy.deepcopy(X_test_o)
-
-            # Run the inner loop from here
-            for inner in range(inner_loop):
-                # If the number of features are very high (>100), we set the minimum number of features needed to be 100.
-                # If the numnber of features are moderate (15-100), we set the minimum number of features to be 10
-                # less than already present
-                n_feat = min(100, X_train_transformed.shape[1]-10)
-
-                # If the number of features are less (<15), then we want it to select atleast 5 features to continue the loop
-                n_feat = max(10, n_feat)
-                list_temp_prev = list_temp
-                print("\n\t--------This is inner loop {}---------\n".format(inner+1))
-                rfecv = RFECV(estimator=clf, step=1, min_features_to_select=n_feat, cv=kfold, scoring='f1')
-
-                # Transform the datasets at each loop to keep track of reduced features
-                X_train = copy.deepcopy(X_train_transformed)
-                fit = rfecv.fit(X_train, y_train_o)
-                X_train_transformed = rfecv.transform(X_train)
-                X_test_transformed = rfecv.transform(X_test_transformed)
-                X_minmax = rfecv.transform(X_minmax)
-                features = rfecv.n_features_
-                print("\tShape of transformed train dataset is: {}".format(X_train_transformed.shape))
-                print("\tOptimal no. of features are: {}".format(features))
-                ranking = rfecv.ranking_
-
-                # Update the feature list here
-                list_temp = updateFeatures(list_temp_prev, ranking)
-
-            # This is just used to check the score after inner loop is finished as the test data was already transformed
-            # to reduced features. Hence we inverse the transform to check the score
-            X_temp = rfecv.inverse_transform(X_test_transformed)
-            score = rfecv.score(X_temp, y_test_o)
-            scores.append(score)
-            print("Shape of transformed train dataset is: {}".format(X_train_transformed.shape))
-            print("Shape of ranks is: {}\n\n".format(ranking.shape))
-
-    # Print the average scores after finshing the outer loop and save the features in an excel file
-    print("After outer loop CV, mean score is: {}".format(mean(scores)))
-    X_final = np.vstack((X_train_transformed, X_test_transformed))
-    print("\n This is RFECV\n")
-    getFeatImportanceFromPermutation(fit, X_train, y_train_o)
-    #getTop10(list_temp_prev, X_final, y)
-    saveFeatures(list_temp_prev, ranking, X_final, 'Final_List')
-
-    return X_final
-
-# This runs SVM and RF forest on the dataset and gives a CV score average.
-def noRFE(X, y, clfname, scale=False):
+# This runs Random Forest on the dataset and gives a CV score average.
+def noRFE(X, y, scale=False):
     if scale:
         scaler = StandardScaler()
         X = scaler.fit_transform(X)
-    if clfname=='svc':
-        clf = svm.LinearSVC()
-    elif clfname=='rf':
-        clf = RandomForestClassifier(n_estimators=10, max_depth=20)
 
-    score = cross_val_score(clf, X, y, cv=StratifiedKFold(n_splits=5, shuffle=True))
-    print("{} Classifier gives mean accuracy after CV {:.2f}%".format(clfname, score.mean() * 100))
-
-def saveFeatureWeights(feature_list, features):
-    filename = 'Dataset/temp.xlsx'
-    wb = load_workbook(filename)
-    ws = wb.create_sheet('feature_weights')
-    wcell1 = ws.cell(1,1, 'Feature')
-    wcell1.font = Font(bold=True)
-    wcell2 = ws.cell(1,2, 'Weights')
-    wcell2.font = Font(bold=True)
-    index = 0
-    for i,val in enumerate(features):
-        if val >= 0:
-            wcell1 = ws.cell(index+2, 1, feature_list[i])
-            wcell2 = ws.cell(index+2, 2, val)
-            index += 1
-
-    wb.save(filename)
-    return
-
-def updateList(X, feat_imp):
-    new_feat = list()
-    X_new = np.zeros((X.shape[0]))
-    for i, val in enumerate(feat_imp):
-        if val > 0.01:
-            new_feat.append(val)
-            col = X[:,i]
-            X_new = np.vstack((X_new, col))
-
-    X_new = X_new[1:,:].T
-    return X_new, new_feat
-
-
-def justRF(X, y, feature_list):
-    scaler = StandardScaler()
-    X = scaler.fit_transform(X)
     clf = RandomForestClassifier(n_estimators=10, max_depth=20)
-    fit = clf.fit(X,y)
-    print("\n This is just RF\n")
-    getFeatImportanceFromPermutation(fit, X, y)
-    feat_imp = clf.feature_importances_
-    print(feat_imp.shape)
-    print(feat_imp)
-    saveFeatureWeights(feature_list, feat_imp)
-    X_new, new_feat = updateList(X, feat_imp)
-    print(X_new.shape)
-    print(len(new_feat))
-    return X_new
+    score = cross_val_score(clf, X, y, cv=StratifiedKFold(n_splits=5, shuffle=True))
+    print("RF Classifier gives mean accuracy after CV {:.2f}%".format(score.mean() * 100))
 
-def getPearsonCorrelation(df, name):
-    print("Pearson Correlation!!")
-    df = df[1:]
-    cor = df.corr()
-    cor.to_excel(name)
-    print(type(cor))
-    print(cor)
-    return cor
+def justRF_temp(X, y, feature_list):
+    model = models.RF(feature_list)
+    score = cross_val_score(model, X, y, cv=StratifiedKFold(n_splits=5, shuffle=True))
+    print("Final sore with just RF is {:.2f}%".format(score.mean() * 100))
 
-def filterHighlyCorrelatedFeatures(df, cor, target):
-    cor_target = abs(cor[target])
-    cor = cor.abs()
-    rel_feat = cor_target[cor_target>0.2]
-    print("Printing Relevant Features\n{}".format(rel_feat.shape))
-    #print("Printing to drop features:\n{}".format(len(to_drop)))
-    cols = np.full((cor.shape[0], ), True, dtype=bool)
-    for i in range(1, cor.shape[0]):
-        for j in range(i+1, cor.shape[0]):
-            if cor.iloc[i,j] >= 0.85:
-                if cor.iloc[1,i] >= cor.iloc[1,j]:
-                    cols[j] = False
-                else:
-                    cols[i] = False
 
-    selected_cols = df.columns[cols]
-    new_df = df[selected_cols]
-    new_df.to_excel("Dataset/FinalData.xlsx")
-    return new_df
+def nestedCV_temp(X, y, feature_list):
+    model = models.nestedRFECV(feature_list)
+    score = cross_val_score(model, X, y, cv=StratifiedKFold(n_splits=5, shuffle=True))
+    print("Final sore with just RF is {:.2f}%".format(score.mean() * 100))
+
+def pearson_temp(df, dataset, target):
+    model = models.PearsonCorr(df, dataset, target)
+    print("\n Obtaining Pearson Correalation Matrix\n")
+    model.getPearsonCorrelation()
+    print("\n Filtering out highly correlated features\n")
+    model.filterHighlyCorrelatedFeatures()
+    return model.transformed()
 
 def getFeatImportanceFromPermutation(fit, X, y):
     result = permutation_importance(fit, X, y)
     print("\n Importance mean of features are\n {}".format(result.importances_mean))
     print("\n Importance std dev of features are\n {}".format(result.importances_std))
 
+def runPostFiltering(X, y, feature_list):
+    print("\nGetting accuracy of dataset after filtering these features\n")
+    noRFE(X, y)
+    model1 = models.RF(feature_list)
+    model2 = models.nestedRFECV(feature_list)
+    print("\nGetting the weights of these filtered features and checking the accuracy\n")
+    model1.fit(X,y)
+    score1 = model1.score(y)
+    print("Final sore with just RF is {:.2f}%".format(score1.mean() * 100))
+    print("\nUsing nested cross-validation on these filtered features and checking the accuracy\n")
+    model2.fit(X,y)
+    score2 = model2.score(y)
+    print("Final sore with nested CV is {:.2f}%".format(score2.mean() * 100))
+
+def permutationTest(X, y, model):
+    #model = RandomForestClassifier(n_estimators=10, max_depth=20)
+    score, permutation_scores, pvalue = permutation_test_score(model, X, y, scoring='accuracy',
+                                                               cv=StratifiedKFold(n_splits=5, shuffle=True))
+    print("Score is {} and pvalue is {}".format(score, pvalue))
+    print(permutation_scores)
