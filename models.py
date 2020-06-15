@@ -8,6 +8,7 @@ from sklearn.base import BaseEstimator
 from openpyxl import load_workbook
 from statistics import mean
 from openpyxl.styles import Font
+import pandas as pd
 import numpy as np
 import copy
 
@@ -58,6 +59,43 @@ class PearsonCorr:
     def saveCorrelatedFeatures(self):
         self.new_df.to_excel("Dataset/FinalData.xlsx")
 
+class CorrMatrix(BaseEstimator):
+
+    X_transform = None
+    y_transform = None
+
+    def __init__(self):
+        super(CorrMatrix, self).__init__()
+
+    def fit(self, X, y):
+        y_t = np.resize(y, (y.shape[0], 1))
+        data = np.hstack((y_t, X))
+        df_data = pd.DataFrame(data=data)
+        cor_matr = np.corrcoef(x=data, rowvar=False)
+        cor = pd.DataFrame(data=cor_matr)
+        cols = np.full((cor.shape[0],), True, dtype=bool)
+        for i in range(1, cor.shape[0]):
+            for j in range(i + 1, cor.shape[0]):
+                if cor.iloc[i, j] >= 0.85:
+                    if cor.iloc[0, i] >= cor.iloc[0, j]:
+                        cols[j] = False
+                    else:
+                        cols[i] = False
+
+        selected_cols = df_data.columns[cols]
+        new_df = df_data[selected_cols]
+        final_data = new_df.to_numpy()
+        self.X_transform = final_data[:,1:]
+        self.y_transform = final_data[:,0]
+        return self
+
+    def predict(self, X):
+        return self.y_transform
+
+    def transform(self):
+        return self.X_transform, self.y_transform
+
+
 class RF(DecisionTreeClassifier):
     model = None
     feature_importance = None
@@ -70,13 +108,16 @@ class RF(DecisionTreeClassifier):
         self.feature_list = feature_list
         self.model = RandomForestClassifier(n_estimators=10, max_depth=20)
 
-    def fit(self, X, y):
+    def fit(self, X, y, sample_weight=None, check_input=True, X_idx_sorted=None):
         scaler = StandardScaler()
         X = scaler.fit_transform(X)
-        self.model.fit(X,y)
+        corr = CorrMatrix()
+        corr.fit(X,y)
+        Xp, yp = corr.transform()
+        self.model.fit(Xp,yp)
         self.feature_importance = self.model.feature_importances_
-        self.X_transformed, _ = self.updateList(X)
-        self.model.fit(self.X_transformed, y)
+        self.X_transformed, _ = self.updateList(Xp)
+        self.model.fit(self.X_transformed, yp)
         return self
 
     def predict(self, X):
@@ -123,11 +164,10 @@ class RF(DecisionTreeClassifier):
 
 
 class nestedRFECV(DecisionTreeClassifier):
-    model = None
+    models = []
+    X_minmax = None
     clf = None
     feature_list = None
-    # Set the number of inner loops needed to perform. May vary depending on the dataset. Its is suggestive
-    # to use atleast 2 for each loop
     outer_loop = 1
     inner_loop = 1
     list = None
@@ -141,11 +181,12 @@ class nestedRFECV(DecisionTreeClassifier):
         # Choose which classifier you need to use to perform RFECV with
         self.clf = RandomForestClassifier(n_estimators=10, max_depth=20)
 
-    def fit(self, X, y):
+    def fit(self, X, y, sample_weight=None, check_input=True, X_idx_sorted=None):
         # Store the original feature list and normalize the data
         list_temp = self.feature_list
         scaler = StandardScaler()
         X_minmax = scaler.fit_transform(X)
+        self.X_minmax = copy.deepcopy(X_minmax)
         self.scores = []
 
         # Determine the number of folds to be used.
@@ -155,7 +196,7 @@ class nestedRFECV(DecisionTreeClassifier):
             print("\n--------This is outer loop {}---------\n".format(outer + 1))
             # Run the outer loop from here
             for i, (train_o, test_o) in enumerate(kfold.split(X_minmax, y)):
-                self.loop_indices.append(train_o, test_o)
+                self.loop_indices.append((train_o, test_o))
                 print("This is set {}".format(i + 1))
                 X_train_o = X_minmax[train_o]
                 y_train_o = y[train_o]
@@ -179,6 +220,7 @@ class nestedRFECV(DecisionTreeClassifier):
 
                     # Transform the datasets at each loop to keep track of reduced features
                     X_train_transformed = rfecv.fit_transform(X_train_transformed, y_train_o)
+                    self.models.append(rfecv)
                     X_test_transformed = rfecv.transform(X_test_transformed)
                     X_minmax = rfecv.transform(X_minmax)
                     features = rfecv.n_features_
@@ -198,10 +240,9 @@ class nestedRFECV(DecisionTreeClassifier):
                 print("Shape of ranks is: {}\n\n".format(ranking.shape))
 
         # Print the average scores after finshing the outer loop and save the features in an excel file
-        print("After outer loop CV, mean score is: {}".format(mean(scores)))
+        print("After outer loop CV, mean score is: {}".format(mean(self.scores)))
         self.list = list_temp_prev
         self.ranking = ranking
-        self.model = rfecv
         print(X_train_transformed.shape)
         print(X_test_transformed.shape)
         self.X_transformed = np.vstack((X_train_transformed, X_test_transformed))
@@ -209,14 +250,23 @@ class nestedRFECV(DecisionTreeClassifier):
         return self
 
     def predict(self, X):
+        X_minmax = self.X_minmax
+        y_hat = np.zeros((X.shape[0]))
         for outer in range(self.outer_loop):
-            for train_o, test_o in self.loop_indices:
+            for i, (train_o, test_o) in enumerate(self.loop_indices):
+                X_test_o = X_minmax[test_o]
+                X_test_transformed = copy.deepcopy(X_test_o)
+                for inner in range(self.inner_loop):
+                    rfecv = self.models[i]
+                    X_test_transformed = rfecv.transform(X_test_transformed)
+                    X_minmax = rfecv.transform(X_minmax)
 
-        return self.model.predict(X)
+                X_temp = rfecv.inverse_transform(X_test_transformed)
+                y_hat[test_o] = rfecv.predict(X_temp)
+        return y_hat
 
-    def score(self, y):
-        score = cross_val_score(self.model, self.X_transformed, y, cv=StratifiedKFold(n_splits=5, shuffle=True))
-        return score
+    def score(self):
+        return self.scores[-1]
 
     def transformed(self):
         return self.X_transformed
