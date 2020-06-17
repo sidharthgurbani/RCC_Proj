@@ -78,7 +78,7 @@ def runRFE(dataset, type, clfname):
 
     elif type=='no_rfe':
         # This is the baseline approach to check the performs of SVMs and RF over the entire dataset. Used for comparison.
-        noRFE(X, y, clfname=clfname, scale=True)
+        noRFE(X, y, scale=True)
 
     elif type=='just_rf':
         justRF_temp(X, y, feature_list)
@@ -88,30 +88,27 @@ def runRFE(dataset, type, clfname):
     elif type=='pearson':
         print("\n This is baseline accuracy\n")
         noRFE(X, y, scale=True)
-        permute = True
-        X, y, feature_list = pearson_temp(df, dataset, target)
-        runPostFiltering(X, y, feature_list=feature_list)
+        permute = False
+        Xp, yp, feature_list = pearson_temp(df, dataset, target)
+        runPostFiltering(Xp, yp, feature_list=feature_list)
         if permute==True:
             print("\nRunning with permuted target variables\n")
-            y = np.random.permutation(y)
-            runPostFiltering(X, y, feature_list=feature_list)
+            yp = np.random.permutation(yp)
+            runPostFiltering(Xp, yp, feature_list=feature_list)
 
     elif type=='permutation_test':
         print("\n Running permutation test score\n")
-        Xp, yp, feature_list = pearson_temp(df, dataset, target)
-        print("Shape of X after filtering is {}".format(X.shape))
-        m = False
-        if m==True:
-            model = models.nestedRFECV(feature_list)
-        else:
-            model = models.RF(feature_list)
-
-        #model = None
-        #model.fit(X, y)
-        #score = model.score(y)
-        #print("Final sore with just RF is {:.2f}%".format(score.mean() * 100))
-        permutationTest(X, y, model=model)
-        permutationTest(Xp, yp, model=model)
+        # print(X.shape)
+        # y = np.resize(y, (y.shape[0], 1))
+        # print(y.shape)
+        # data = np.hstack((y, X))
+        #Xp, yp, feature_list = pearson_temp(df, dataset, target)
+        #print("Shape of X after filtering is {}".format(Xp.shape))
+        # cor_matr = np.corrcoef(x=data, rowvar=False)
+        # print(cor_matr.shape)
+        # pdf = pd.DataFrame(data=cor_matr)
+        # pdf.to_excel("corr_matrix.xlsx")
+        permutationTest(X, y, feature_list, dataset)
 
 
     else:
@@ -120,5 +117,8 @@ def runRFE(dataset, type, clfname):
 
 def main():
     runRFE(dataset='noncon_sarc', type='just_rf', clfname='rf')
+    # runRFE(dataset='pv_sarc', type='permutation_test', clfname='rf')
+    # runRFE(dataset='noncon_fgrade', type='permutation_test', clfname='rf')
+    # runRFE(dataset='pv_fgrade', type='permutation_test', clfname='rf')
 
 main()

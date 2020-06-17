@@ -68,6 +68,7 @@ class CorrMatrix(BaseEstimator):
         super(CorrMatrix, self).__init__()
 
     def fit(self, X, y):
+        #print("This is CorrMatrix model fit")
         y_t = np.resize(y, (y.shape[0], 1))
         data = np.hstack((y_t, X))
         df_data = pd.DataFrame(data=data)
@@ -106,18 +107,21 @@ class RF(DecisionTreeClassifier):
     def __init__(self, feature_list):
         super(RF, self).__init__()
         self.feature_list = feature_list
-        self.model = RandomForestClassifier(n_estimators=10, max_depth=20)
+        self.model = RandomForestClassifier(n_estimators=1000, max_depth=100)
 
     def fit(self, X, y, sample_weight=None, check_input=True, X_idx_sorted=None):
+        #print("This is RF model fit")
         scaler = StandardScaler()
         X = scaler.fit_transform(X)
-        corr = CorrMatrix()
-        corr.fit(X,y)
-        Xp, yp = corr.transform()
-        self.model.fit(Xp,yp)
+        # corr = CorrMatrix()
+        # corr.fit(X,y)
+        # Xp, yp = corr.transform()
+        # print("Final shape of data is: {}".format(Xp.shape))
+        # self.model.fit(Xp,yp)
+        self.model.fit(X, y)
         self.feature_importance = self.model.feature_importances_
-        self.X_transformed, _ = self.updateList(Xp)
-        self.model.fit(self.X_transformed, yp)
+        self.X_transformed, _ = self.updateList(X)
+        self.model.fit(self.X_transformed, y)
         return self
 
     def predict(self, X):
