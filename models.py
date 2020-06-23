@@ -107,7 +107,7 @@ class RF(DecisionTreeClassifier):
     def __init__(self, feature_list):
         super(RF, self).__init__()
         self.feature_list = feature_list
-        self.model = RandomForestClassifier(n_estimators=1000, max_depth=100)
+        self.model = RandomForestClassifier(n_estimators=100, max_depth=50)
 
     def fit(self, X, y, sample_weight=None, check_input=True, X_idx_sorted=None):
         #print("This is RF model fit")
@@ -156,14 +156,13 @@ class RF(DecisionTreeClassifier):
 
     def updateList(self, X):
         new_feat = list()
-        X_new = np.zeros((X.shape[0]))
+        indices = []
         for i, val in enumerate(self.feature_importance):
             if val > 0.01:
                 new_feat.append(val)
-                col = X[:, i]
-                X_new = np.vstack((X_new, col))
+                indices.append(i)
 
-        X_new = X_new[1:, :].T
+        X_new = X[:,indices]
         return X_new, new_feat
 
 

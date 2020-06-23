@@ -11,29 +11,29 @@ def getDataset(dataset):
     # Choose the dataset accordingly and set the X,y and feature values
     if dataset == 'noncon_sarc':
         df = pd.read_excel("Dataset/temp_noncon_imp.xlsx")
-        X = df.drop(["Case", "sarc"], axis=1)
-        y = df["sarc"]
+        X = df.drop(["Case", "sarc"], axis=1).to_numpy()
+        y = df["sarc"].to_numpy()
         target = "sarc"
         feature_list = df.columns[2:]
 
     elif dataset == 'pv_sarc':
         df = pd.read_excel("Dataset/temp_pv_imp.xlsx")
-        X = df.drop(["Case", "sarc"], axis=1)
-        y = df["sarc"]
+        X = df.drop(["Case", "sarc"], axis=1).to_numpy()
+        y = df["sarc"].to_numpy()
         target = "sarc"
         feature_list = df.columns[2:]
 
     elif dataset == 'noncon_fgrade':
         df = pd.read_excel("Dataset/temp_noncon-healthmyne-clinicalMLanon_imp.xlsx")
-        X = df.drop(["Case", "rcctype", "fgrade", "perineph", "recurr", "fucond", "deceased", "survival"], axis=1)
-        y = df["fgrade"]
+        X = df.drop(["Case", "rcctype", "fgrade", "perineph", "recurr", "fucond", "deceased", "survival"], axis=1).to_numpy()
+        y = df["fgrade"].to_numpy()
         target = "fgrade"
         feature_list = df.columns[8:]
 
     elif dataset == 'pv_fgrade':
         df = pd.read_excel("Dataset/temp_pv-healthmyne-clinicalanon_imp.xlsx")
-        X = df.drop(["Case", "rcctype", "fgrade", "perineph", "recurr", "fucond", "deceased", "survival"], axis=1)
-        y = df["fgrade"]
+        X = df.drop(["Case", "rcctype", "fgrade", "perineph", "recurr", "fucond", "deceased", "survival"], axis=1).to_numpy()
+        y = df["fgrade"].to_numpy()
         target = "fgrade"
         feature_list = df.columns[8:]
 
@@ -41,6 +41,7 @@ def getDataset(dataset):
 
 
 def runRFE(dataset, type, clfname):
+    print("\n\nCurrent dataset is " + dataset + "\n")
     # Choose the dataset accordingly and set the X,y and feature values
     X, y, feature_list, df, target = getDataset(dataset)
 
@@ -98,27 +99,40 @@ def runRFE(dataset, type, clfname):
 
     elif type=='permutation_test':
         print("\n Running permutation test score\n")
-        # print(X.shape)
-        # y = np.resize(y, (y.shape[0], 1))
-        # print(y.shape)
-        # data = np.hstack((y, X))
-        #Xp, yp, feature_list = pearson_temp(df, dataset, target)
-        #print("Shape of X after filtering is {}".format(Xp.shape))
-        # cor_matr = np.corrcoef(x=data, rowvar=False)
-        # print(cor_matr.shape)
-        # pdf = pd.DataFrame(data=cor_matr)
-        # pdf.to_excel("corr_matrix.xlsx")
         permutationTest(X, y, feature_list, dataset)
 
+    elif type=='runOriginal':
+        removeFeaturesWithNan()
 
+    elif type=='pca':
+        PCAFilter(dataset, feature_list, X, y)
+
+    elif type=='just_xgb':
+        justXgBoost(X, y)
+
+    elif type=='xgboost':
+        Xp, yp, feature_list = pearson_temp(df, dataset, target)
+        boost(X, y)
     else:
         print("Error!!! Incorrect type of RFE selected!! Please check type argument again.")
 
 
 def main():
-    runRFE(dataset='noncon_sarc', type='just_rf', clfname='rf')
-    # runRFE(dataset='pv_sarc', type='permutation_test', clfname='rf')
-    # runRFE(dataset='noncon_fgrade', type='permutation_test', clfname='rf')
-    # runRFE(dataset='pv_fgrade', type='permutation_test', clfname='rf')
+    runRFE(dataset='noncon_sarc', type='just_xgb', clfname='rf')
+    runRFE(dataset='pv_sarc', type='just_xgb', clfname='rf')
+    # runRFE(dataset='noncon_fgrade', type='xgboost', clfname='rf')
+    # runRFE(dataset='pv_fgrade', type='xgboost', clfname='rf')
+    # for _ in range(1):
+        # runRFE(dataset='noncon_sarc', type='pca', clfname='rf')
+        # runRFE(dataset='pv_sarc', type='pca', clfname='rf')
+        # runRFE(dataset='noncon_fgrade', type='pca', clfname='rf')
+        # runRFE(dataset='pv_fgrade', type='pca', clfname='rf')
+
+    return
+
+
+
+
+
 
 main()
