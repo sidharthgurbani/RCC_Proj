@@ -1,11 +1,13 @@
 from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.base import ClassifierMixin
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import accuracy_score
 from sklearn.feature_selection import RFECV
 from sklearn.base import BaseEstimator
 from openpyxl import load_workbook
+import xgboost as xgb
 from statistics import mean
 from openpyxl.styles import Font
 import pandas as pd
@@ -96,6 +98,42 @@ class CorrMatrix(BaseEstimator):
     def transform(self):
         return self.X_transform, self.y_transform
 
+class XGBC(xgb.XGBClassifier):
+    model = xgb.XGBClassifier()
+    feature_importance = None
+    feature_list = None
+    X_transformed = None
+
+    def __init__(self, feature_list, objective="binary_:logistic"):
+        super(XGBC, self).__init__(objective=objective)
+        self.feature_list = feature_list
+
+    def fit(self, X, y):
+        scaler = StandardScaler()
+        X = scaler.fit_transform(X)
+        self.model.fit(X, y)
+        self.feature_importance = self.model.feature_importances_
+        self.updateList(X)
+        self.model.fit(self.X_transformed, y)
+        return self
+
+    def predict(self, y):
+        return self.model.predict(y)
+
+    def score(self, X, y):
+        return accuracy_score(y, self.predict(X), sample_weight=sample_weight)
+
+    def transform(self, X):
+        X_tr = self.updateList(X)
+        return X_tr
+
+    def updateList(self, X):
+        indices = []
+        for i, val in enumerate(self.feature_importance):
+            if val > 0.01:
+                indices.append(i)
+        self.X_transformed = X[:, indices]
+
 
 class RF(DecisionTreeClassifier):
     model = None
@@ -182,7 +220,8 @@ class nestedRFECV(DecisionTreeClassifier):
     def __init__(self, feature_list):
         self.feature_list = feature_list
         # Choose which classifier you need to use to perform RFECV with
-        self.clf = RandomForestClassifier(n_estimators=10, max_depth=20)
+        # self.clf = RandomForestClassifier(n_estimators=10, max_depth=20)
+        self.clf = xgb.XGBClassifier()
 
     def fit(self, X, y, sample_weight=None, check_input=True, X_idx_sorted=None):
         # Store the original feature list and normalize the data
@@ -220,8 +259,11 @@ class nestedRFECV(DecisionTreeClassifier):
                     list_temp_prev = list_temp
                     print("\n\t--------This is inner loop {}---------\n".format(inner + 1))
                     rfecv = RFECV(estimator=self.clf, step=1, min_features_to_select=n_feat, cv=kfold, scoring='accuracy')
+                    # rfecv = xgb.XGBClassifier()
 
                     # Transform the datasets at each loop to keep track of reduced features
+                    # rfecv.fit(X_train_transformed, y_train_o)
+                    # X_train_transformed = rfecv.transform(X_train_transformed)
                     X_train_transformed = rfecv.fit_transform(X_train_transformed, y_train_o)
                     self.models.append(rfecv)
                     X_test_transformed = rfecv.transform(X_test_transformed)

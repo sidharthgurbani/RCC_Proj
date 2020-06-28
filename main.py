@@ -1,10 +1,14 @@
 from sklearn.model_selection import train_test_split
 from featureSelectAndClassify import featureSelectAndClassifyRFE, featureSelectAndClassifyRFECV, writeToExcelFile
 from eliminateFeatures import *
+from sklearn.preprocessing import StandardScaler
 import warnings
 import pandas as pd
 import numpy as np
+from boost import XGboost
 import models
+from sklearn.utils.estimator_checks import check_estimator
+
 
 warnings.filterwarnings("ignore")
 def getDataset(dataset):
@@ -40,7 +44,7 @@ def getDataset(dataset):
     return X, y, feature_list, df, target
 
 
-def runRFE(dataset, type, clfname):
+def runRFE(dataset, type, clfname='rf'):
     print("\n\nCurrent dataset is " + dataset + "\n")
     # Choose the dataset accordingly and set the X,y and feature values
     X, y, feature_list, df, target = getDataset(dataset)
@@ -59,16 +63,16 @@ def runRFE(dataset, type, clfname):
     not relevant much but you may check to get an idea on that approach!!
     '''
 
-    if type=='rfecv':
-        # This performs RFE with CV only once and gives the best features as observed from the train dataset
-        featureSelectAndClassifyRFECV(X_train, X_test, y_train, y_test, clfname)
-
-    elif type=='rfe':
-        # This performs RFE without CV only once and gives the best features as observed from the train dataset
-        featureranks = featureSelectAndClassifyRFE(X, X_test, y, y_test, clfname)
-        writeToExcelFile(featureranks)
-
-    elif type=='elim_rfecv':
+    # if type=='rfecv':
+    #     # This performs RFE with CV only once and gives the best features as observed from the train dataset
+    #     featureSelectAndClassifyRFECV(X_train, X_test, y_train, y_test, clfname)
+    #
+    # elif type=='rfe':
+    #     # This performs RFE without CV only once and gives the best features as observed from the train dataset
+    #     featureranks = featureSelectAndClassifyRFE(X, X_test, y, y_test, clfname)
+    #     writeToExcelFile(featureranks)
+    #
+    if type=='elim_rfecv':
         # This performs RFE with CV using nested cross-validation to eliminate features in every loop. At the end of all
         # the outer loops, the final list of features is saved in a file and the dataset with reduced features is sent
         # for testing again using CV with Support Vector Machine Classifier and Random Forest Classifier
@@ -76,12 +80,12 @@ def runRFE(dataset, type, clfname):
         #XNew = eliminateFeaturesRecursivelyWithCV(X, y, clfname=clfname, feature_list=feature_list)
         #print("Shape of final data input is {}".format(XNew.shape))
         #noRFE(XNew, y, 'rf')
+    #
+    # elif type=='no_rfe':
+    #     # This is the baseline approach to check the performs of SVMs and RF over the entire dataset. Used for comparison.
+    #     noRFE(X, y, scale=True)
 
-    elif type=='no_rfe':
-        # This is the baseline approach to check the performs of SVMs and RF over the entire dataset. Used for comparison.
-        noRFE(X, y, scale=True)
-
-    elif type=='just_rf':
+    if type=='just_rf':
         justRF_temp(X, y, feature_list)
         #X_new = justRF(X, y, feature_list)
         #noRFE(X_new, y, 'rf')
@@ -110,23 +114,30 @@ def runRFE(dataset, type, clfname):
     elif type=='just_xgb':
         justXgBoost(X, y)
 
-    elif type=='xgboost':
-        Xp, yp, feature_list = pearson_temp(df, dataset, target)
-        boost(X, y)
     else:
         print("Error!!! Incorrect type of RFE selected!! Please check type argument again.")
 
+def FeatImpWithBoost(dataset):
+    X, y, feature_list, _, _ = getDataset(dataset)
+    # X, y, feature_list = removeFeaturesWithNan()
+    # scaler = StandardScaler()
+    # X = scaler.fit_transform(X)
+    print(X.shape)
+    XGboost(X, y, feature_list)
 
 def main():
-    runRFE(dataset='noncon_sarc', type='just_xgb', clfname='rf')
-    runRFE(dataset='pv_sarc', type='just_xgb', clfname='rf')
-    # runRFE(dataset='noncon_fgrade', type='xgboost', clfname='rf')
-    # runRFE(dataset='pv_fgrade', type='xgboost', clfname='rf')
+    FeatImpWithBoost(dataset='pv_sarc')
+    # checkModel()
+    # runRFE(dataset='noncon_sarc', type='xgboost')
+    # runRFE(dataset='pv_sarc', type='elim_rfecv')
+    # runRFE(dataset='noncon_fgrade', type='just_xgb')
+    # runRFE(dataset='pv_fgrade', type='just_xgb')
     # for _ in range(1):
-        # runRFE(dataset='noncon_sarc', type='pca', clfname='rf')
-        # runRFE(dataset='pv_sarc', type='pca', clfname='rf')
-        # runRFE(dataset='noncon_fgrade', type='pca', clfname='rf')
-        # runRFE(dataset='pv_fgrade', type='pca', clfname='rf')
+    #     # runRFE(dataset='noncon_sarc', type='xgboost')
+    #     runRFE(dataset='pv_sarc', type='xgboost')
+    #     # runRFE(dataset='noncon_fgrade', type='xgboost')
+    #     # runRFE(dataset='pv_fgrade', type='xgboost')
+
 
     return
 

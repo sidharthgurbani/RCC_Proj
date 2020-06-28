@@ -6,7 +6,6 @@ from sklearn.inspection import permutation_importance
 from sklearn.decomposition import PCA
 import pandas as pd
 import xgboost as xgb
-from statistics import mean, stdev
 from math import sqrt, ceil
 import numpy as np
 import copy
@@ -34,9 +33,13 @@ def justRF_temp(X, y, feature_list):
 
 def justXgBoost(X, y):
     model = xgb.XGBClassifier()
-    model.fit(X,y)
     score = cross_val_score(model, X, y, cv=StratifiedKFold(n_splits=5, shuffle=True))
     print("XGB Classifier gives mean accuracy after CV {:.2f}%".format(score.mean() * 100))
+
+def XGBWithFeatureElimination(X, y, feature_list):
+    model = models.XGBC(feature_list)
+    score = cross_val_score(model, X, y, cv=StratifiedKFold(n_splits=5, shuffle=True))
+    print("XGB Classifier With FE gives mean accuracy after CV {:.2f}%".format(score.mean() * 100))
 
 def nestedCV_temp(X, y, feature_list):
     model = models.nestedRFECV(feature_list)
@@ -45,7 +48,8 @@ def nestedCV_temp(X, y, feature_list):
     print(y_hat.shape)
     acc_score = model.score()
     X_tr = model.transformed()
-    clf = RandomForestClassifier(n_estimators=10, max_depth=20)
+    # clf = RandomForestClassifier(n_estimators=10, max_depth=20)
+    clf = xgb.XGBClassifier()
     score = cross_val_score(clf, X_tr, y, cv=StratifiedKFold(n_splits=5, shuffle=True))
     print("Final sore with nested CV is {:.2f}%".format(score.mean() * 100))
     print("Final sore with nested CV is {:.2f}%".format(acc_score * 100))
@@ -79,38 +83,33 @@ def runPostFiltering(X, y, feature_list):
     print("Final sore with nested CV is {:.2f}%".format(score2.mean() * 100))
 
 def removeFeaturesWithNan():
-    # dataset = "Dataset/Orignial files/temp_pv.xlsx"
-    # df = pd.read_excel(dataset)
-    # X = df.drop(["Case", "sarc"], axis=1).to_numpy()
-    # y = df["sarc"].to_numpy()
-    # feature_list = df.columns[2:]
-    dataset = "Dataset/Orignial files/temp_pv-healthmyne-clinicalanon.xlsx"
+    dataset = "Dataset/Orignial files/temp_pv.xlsx"
     df = pd.read_excel(dataset)
-    X = df.drop(["Case #", "rcctype", "fgrade", "perineph", "recurr", "fucond", "deceased", "survival"],
-                axis=1).to_numpy()
-    y = df["fgrade"].to_numpy()
-    feature_list = df.columns[8:]
+    X = df.drop(["Case", "sarc"], axis=1).to_numpy()
+    y = df["sarc"].to_numpy()
+    target = "sarc"
+    feature_list = df.columns[2:]
     print(X.shape)
     indices = []
     for i in range(X.shape[1]):
         col = X[:,i]
-        print(col.shape)
         if np.isnan(np.sum(col))==True:
             indices.append(i)
 
     X_final = np.delete(arr=X, obj=indices, axis=1)
-    print(X_final.shape)
-    justRF_temp(X_final, y, feature_list)
+    # justRF_temp(X_final, y, feature_list)
+    return X_final, y, feature_list
 
 
 def permutationTest(X, y, feature_list, dataset):
-    n_tests = 5
+    n_tests = 2
     n_permutations = 100
     scores = np.zeros(n_tests)
     pvalues = np.zeros(n_tests)
     permutation_scores = np.zeros(n_tests*n_permutations)
     for i in range(n_tests):
-        model = models.RF(feature_list)
+        # model = models.RF(feature_list)
+        model = xgb.XGBClassifier()
         Xt = copy.deepcopy(X)
         yt = copy.deepcopy(y)
         score, permutation_score, pvalue = permutations(model, Xt, yt, scoring='accuracy',
@@ -165,28 +164,3 @@ def PCAFilter(dataset,feature_list, X, y):
             features.add(feature_list[index])
 
     print(len(features))
-
-def boost(X, y):
-    noRFE(X,y)
-    model = xgb.XGBClassifier()
-    model.fit(X,y)
-    feature_importance = model.feature_importances_
-    print(feature_importance.shape)
-    X_tr = updateList(feature_importance, X)
-    print(X_tr.shape)
-    # print(model.feature_importances_)
-    # print(sum(model.feature_importances_))
-    model1 = xgb.XGBClassifier()
-    score = cross_val_score(model1, X_tr, y, cv=StratifiedKFold(n_splits=5, shuffle=True))
-    print("XGB Classifier gives mean accuracy after CV {:.2f}%".format(score.mean() * 100))
-    noRFE(X_tr, y)
-    return
-
-def updateList(feature_importance, X):
-    indices = []
-    for i, val in enumerate(feature_importance):
-        if val > 0.01:
-            indices.append(i)
-
-    X_new = X[:,indices]
-    return X_new

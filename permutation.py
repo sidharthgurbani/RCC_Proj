@@ -13,14 +13,14 @@ def permutations(estimator, X, y, cv=None, n_permuations=100, random_state=0, sc
     before running cross-validation using the model
     """
 
-    X, y = indexable(X, y)
+    Xs, ys = indexable(X, y)
     cv = check_cv(cv, y, classifier=is_classifier(estimator))
     scorer = check_scoring(estimator, scoring=scoring)
     random_state = check_random_state(random_state)
 
-    corr = CorrMatrix()
-    corr.fit(X,y)
-    Xs, ys = corr.transform()
+    # corr = CorrMatrix()
+    # corr.fit(X,y)
+    # Xs, ys = corr.transform()
     score = _permutations(clone(estimator), Xs, ys, cv, scorer)
     permutation_scores = np.zeros((n_permuations))
     for i in range(n_permuations):
