@@ -8,6 +8,7 @@ import pandas as pd
 import xgboost as xgb
 from math import sqrt, ceil
 import numpy as np
+from random import randint
 import copy
 import models
 from permutation import permutations
@@ -82,27 +83,10 @@ def runPostFiltering(X, y, feature_list):
     score2 = cross_val_score(clf, X_tr, y, cv=StratifiedKFold(n_splits=5, shuffle=True))
     print("Final sore with nested CV is {:.2f}%".format(score2.mean() * 100))
 
-def removeFeaturesWithNan():
-    dataset = "Dataset/Orignial files/temp_pv.xlsx"
-    df = pd.read_excel(dataset)
-    X = df.drop(["Case", "sarc"], axis=1).to_numpy()
-    y = df["sarc"].to_numpy()
-    target = "sarc"
-    feature_list = df.columns[2:]
-    print(X.shape)
-    indices = []
-    for i in range(X.shape[1]):
-        col = X[:,i]
-        if np.isnan(np.sum(col))==True:
-            indices.append(i)
-
-    X_final = np.delete(arr=X, obj=indices, axis=1)
-    # justRF_temp(X_final, y, feature_list)
-    return X_final, y, feature_list
 
 
 def permutationTest(X, y, feature_list, dataset):
-    n_tests = 2
+    n_tests = 5
     n_permutations = 100
     scores = np.zeros(n_tests)
     pvalues = np.zeros(n_tests)
@@ -112,8 +96,9 @@ def permutationTest(X, y, feature_list, dataset):
         model = xgb.XGBClassifier()
         Xt = copy.deepcopy(X)
         yt = copy.deepcopy(y)
-        score, permutation_score, pvalue = permutations(model, Xt, yt, scoring='accuracy',
-                                                        cv=StratifiedKFold(n_splits=5, shuffle=True),
+        rs = randint(1, 100)
+        score, permutation_score, pvalue = permutations(model, Xt, yt, scoring='f1',
+                                                        cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=rs),
                                                         n_permuations=n_permutations)
         print("\nPermutation {}:\n".format(i+1))
         print("p-value is {:.2f}".format(pvalue))

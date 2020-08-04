@@ -3,6 +3,7 @@ from sklearn.model_selection._split import check_cv
 from sklearn.metrics import check_scoring
 from sklearn.base import is_classifier, clone
 from sklearn.utils.metaestimators import _safe_split
+from imputer import impute_data
 import numpy as np
 from models import CorrMatrix
 
@@ -24,11 +25,11 @@ def permutations(estimator, X, y, cv=None, n_permuations=100, random_state=0, sc
     score = _permutations(clone(estimator), Xs, ys, cv, scorer)
     permutation_scores = np.zeros((n_permuations))
     for i in range(n_permuations):
-        corr_p = CorrMatrix()
-        corr_p.fit(X, y)
-        Xp, yp = corr_p.transform()
-        yp = _safe_indexing(yp, random_state.permutation(len(yp)))
-        permutation_scores[i] = _permutations(clone(estimator), Xp, yp, cv, scorer)
+        # corr_p = CorrMatrix()
+        # corr_p.fit(X, y)
+        # Xp, yp = corr_p.transform()
+        yp = _safe_indexing(y, random_state.permutation(len(y)))
+        permutation_scores[i] = _permutations(clone(estimator), Xs, yp, cv, scorer)
 
     pvalue = (np.sum(permutation_scores >= score) + 1.0) / (n_permuations + 1)
 
@@ -40,6 +41,7 @@ def _permutations(estimator, X, y, cv, scorer):
     for train, test in cv.split(X,y):
         X_train, y_train = _safe_split(estimator, X, y, train)
         X_test, y_test = _safe_split(estimator, X, y, test, train)
+        # X_train, X_test = impute_data(X_train, X_test)
         estimator.fit(X_train, y_train)
         avg_score.append(scorer(estimator, X_test, y_test))
     return np.mean(avg_score)
